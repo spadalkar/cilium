@@ -152,8 +152,11 @@ static __always_inline bool nodeport_uses_dsr6(const struct ipv6_ct_tuple *tuple
 	return nodeport_uses_dsr(tuple->nexthdr);
 }
 
-static __always_inline bool nodeport_nat_ipv6_needed(struct __ctx_buff *ctx,
-						     union v6addr *addr)
+/* TODO(brb): once we implement MASQ for IPv6, we can move snat_v{4,6}_needed()
+ * to lib/nat.h, as then the helper function won't depend the dsr checks.
+ */
+static __always_inline bool snat_v6_needed(struct __ctx_buff *ctx,
+					   union v6addr *addr)
 {
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -172,7 +175,7 @@ static __always_inline bool nodeport_nat_ipv6_needed(struct __ctx_buff *ctx,
 		}
 	}
 #endif /* ENABLE_DSR_HYBRID */
-	/* See nodeport_nat_ipv4_needed(). */
+	/* See snat_v4_needed(). */
 	return !ipv6_addrcmp((union v6addr *)&ip6->saddr, addr);
 }
 
@@ -187,7 +190,7 @@ static __always_inline int nodeport_nat_ipv6_fwd(struct __ctx_buff *ctx,
 
 	ipv6_addr_copy(&target.addr, addr);
 
-	ret = nodeport_nat_ipv6_needed(ctx, addr) ?
+	ret = snat_v6_needed(ctx, addr) ?
 	      snat_v6_process(ctx, NAT_DIR_EGRESS, &target) : CTX_ACT_OK;
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
@@ -798,9 +801,9 @@ static __always_inline bool nodeport_uses_dsr4(const struct ipv4_ct_tuple *tuple
 	return nodeport_uses_dsr(tuple->nexthdr);
 }
 
-static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
-						     __be32 addr,
-						     bool *from_endpoint __maybe_unused)
+/* Returns true if the packet must be SNAT-ed */
+static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 addr,
+					   bool *from_endpoint __maybe_unused)
 {
 	struct endpoint_info *ep __maybe_unused;
 	void *data, *data_end;
@@ -888,7 +891,7 @@ static __always_inline int nodeport_nat_ipv4_fwd(struct __ctx_buff *ctx,
 	};
 	int ret = CTX_ACT_OK;
 
-	if (nodeport_nat_ipv4_needed(ctx, addr, &from_endpoint))
+	if (snat_v4_needed(ctx, addr, &from_endpoint))
 		ret = snat_v4_process(ctx, NAT_DIR_EGRESS, &target,
 				      from_endpoint);
 	if (ret == NAT_PUNT_TO_STACK)
