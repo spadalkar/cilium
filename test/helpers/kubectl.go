@@ -2295,20 +2295,6 @@ func (kub *Kubectl) DeleteHubbleRelay(ns string) error {
 	return kub.waitToDelete("HubbleRelay", HubbleRelayLabel)
 }
 
-// ciliumUninstallHelm uninstalls Cilium with the Helm options provided.
-func (kub *Kubectl) ciliumUninstallHelm(filename string, options map[string]string) error {
-	if err := kub.generateCiliumYaml(options, filename); err != nil {
-		return err
-	}
-
-	res := kub.Delete(filename)
-	if !res.WasSuccessful() {
-		return res.GetErr("Unable to delete YAML")
-	}
-
-	return nil
-}
-
 // CiliumInstall installs Cilium with the provided Helm options.
 func (kub *Kubectl) CiliumInstall(filename string, options map[string]string) error {
 	// First try to remove any existing cilium install. This is done by removing resources
@@ -2359,11 +2345,6 @@ func (kub *Kubectl) RunHelm(action, repo, helmName, version, namespace string, o
 		"--version=%s "+
 		"--namespace=%s "+
 		"%s", action, helmName, repo, version, namespace, optionsString)), nil
-}
-
-// CiliumUninstall uninstalls Cilium with the provided Helm options.
-func (kub *Kubectl) CiliumUninstall(filename string, options map[string]string) error {
-	return kub.ciliumUninstallHelm(filename, options)
 }
 
 // GetCiliumPods returns a list of all Cilium pods in the specified namespace,
